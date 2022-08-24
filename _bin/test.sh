@@ -15,5 +15,6 @@ python3 _src/AGH/main.py    --input_tag $INPUT \
                             --out_dir $OUTPUT \
                             --entities $entities \
                             --value_column $value_column \
+                            --initial_gamma 0.01 \
                             # 
 fi

@@ -30,7 +30,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--optimization", type=str, choices=["full", "wo_gradient_ascent","wo_adaptive_steps"], default="full"
     )
-    parser.add_argument("--negative_curvature", type=float, default=-1)
+    parser.add_argument("--negative_curvature", type=float, default=1)
 
     args = parser.parse_args()
 
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     
     # TODO:randmize train_tensor vs test tensor
 
-    train_len=int(len(encoded_tensor)*0.7)    
+    train_len=int(len(encoded_tensor)*0.01)
     train_tensor = encoded_tensor[:train_len]
     test_tensor = encoded_tensor[train_len:]
     
