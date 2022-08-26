@@ -5,17 +5,19 @@ import numpy as np
 import random
 import copy
 
-import pandas as pd 
+import pandas as pd
 from importlib import import_module
 import itertools
 from tqdm import tqdm
 
 import sys
+
 sys.path.append("_src")
 import utils
 
 random.seed(100)
 np.random.seed(100)
+
 
 class AGH(object):
     def __init__(
@@ -28,8 +30,8 @@ class AGH(object):
         negative_curvature,
         optimization,
         phai,
-        n_iter
-        ):
+        n_iter,
+    ):
 
         # data
         self.tensor_shape = tensor_shape
@@ -47,145 +49,189 @@ class AGH(object):
         self.init_factors()
 
         self.target_vectors = [np.zeros((s, self.rank)) for s in tensor_shape]
-        self.permutations = list(itertools.combinations([ i for i in range(self.order)],2))
+        self.permutations = list(
+            itertools.combinations([i for i in range(self.order)], 2)
+        )
         self.loss_logs = []
+        self.gradient_logs = []
 
     def init_factors(self):
-        factors=[]
+        factors = []
+        sum_elements = np.sum(self.tensor_shape) * self.rank
+
         for s in self.tensor_shape:
-            # factors.append(np.random.rand(s,self.rank)/np.sqrt(self.rank))
-            factors.append(np.random.rand(s,self.rank))
+            # flattend_factor = np.random.normal(0,np.sqrt(1/(s*self.rank)),s*self.rank)
+            flattend_factor = np.random.normal(
+                0, np.sqrt(1 / sum_elements), s * self.rank
+            )
+            factor = flattend_factor.reshape(s, self.rank)
+            factors.append(factor)
+
+            # factors.append(np.random.rand(s,self.rank))
 
         self.factors = factors
 
-    def train(self,train_tensor):
+    def train(self, train_tensor):
+        print("Train Tensor:")
         print(train_tensor)
         for target_factor_ind in range(self.order):
-            self.optimizer(train_tensor,target_factor_ind)
+            self.optimizer(train_tensor, target_factor_ind)
             print(f"DONE! Optimization of Factor U^{target_factor_ind+1}")
         return self.factors, self.loss_logs
 
-    def optimizer(self,tensor, target_factor_ind):
+    def optimizer(self, tensor, target_factor_ind):
         optimized_factor = self.factors[target_factor_ind]
-        loss = self.calc_loss(tensor)
+        loss = self.calc_loss(tensor, tqdm_=True)
         print(f"initial_loss:{loss}")
-        samples = random.sample(range(len(tensor)),len(tensor))        
-        # samples = random.sample(range(len(tensor)),self.n_iter)        
+        samples = random.sample(range(len(tensor)), len(tensor))
+        # samples = random.sample(range(len(tensor)),self.n_iter)
         # for i in tqdm(samples):
         for _ in range(self.n_iter):
             for i in tqdm(samples):
                 entry = tensor[i]
                 # print(f"entry:{entry}")
                 optimized_entity = entry[target_factor_ind]
-                pre_entry_error = self.calc_entry_error(entry)
 
-                # gradient Descent 
+                # clip subtensor which contains optimized_entity
+                contain_idxs, contain_modes = np.where(tensor == entry)
+                cliped_tensor = tensor[contain_idxs[contain_modes == target_factor_ind]]
+                pre_entry_error = self.calc_loss(cliped_tensor)
+
+                # gradient Descent
                 if loss > self.l0:
-                    # setup gamma 
-                    n_vec = np.sqrt(np.inner(optimized_factor[optimized_entity,:],optimized_factor[optimized_entity,:]))
-                    gamma = self.initial_gamma*np.exp(-n_vec)                
-                    
-                    gradient_descent = self.calc_descent(entry)
-                    # print(f"Gradient:{gradient_descent}")
+                    # setup gamma
+                    n_vec = np.sqrt(
+                        np.inner(
+                            optimized_factor[optimized_entity, :],
+                            optimized_factor[optimized_entity, :],
+                        )
+                    )
+                    gamma = self.initial_gamma * np.exp(-n_vec)
+                    gradient_descent = self.calc_descent(entry, tensor)
+                    print(f"Gradient:{gradient_descent}")
+
                     # update factor
-                    self.factors[target_factor_ind][optimized_entity,:] = optimized_factor[optimized_entity,:] - gamma*gradient_descent
-                
-                # gradient Ascent 
+                    self.factors[target_factor_ind][optimized_entity, :] = (
+                        optimized_factor[optimized_entity, :] - gamma * gradient_descent
+                    )
+
+                # gradient Ascent
                 # with upper-bound of the Lipschitz constant
                 else:
-                    Lq_w = self.calc_ascent(loss,entry)
+                    Lq_w = self.calc_ascent(loss, entry, tensor)
                     print("[Jump out]")
                     print(f"Ascent:{Lq_w}")
+                    exit()
                     # update factor
-                    self.factors[target_factor_ind][optimized_entity,:] = optimized_factor[optimized_entity,:] + Lq_w
-                post_entry_error = self.calc_entry_error(entry)
-                loss -= (pre_entry_error - post_entry_error)
+                    self.factors[target_factor_ind][optimized_entity, :] = (
+                        optimized_factor[optimized_entity, :] + Lq_w
+                    )
+
+                post_entry_error = self.calc_loss(cliped_tensor)
+                loss -= pre_entry_error - post_entry_error
+                print(loss)
                 self.loss_logs.append(loss)
+                self.gradient_logs.append(gradient_descent)
+
             print(f"n_iter:{_}, loss:{loss}")
 
-    def calc_descent(self,entry):
+    def calc_descent(self, entry, tensor):
         obseved_val = entry[-1]
-        sum_distance= self.calc_factors_distances(entry)
-        term1 = 2*(obseved_val - self.projection_tanh(sum_distance))
-        term2 = (-self.phai)*(1-np.tanh(sum_distance)**2)
-        term3 = self.calc_factors_distances(entry,differential=1)
-        
-        return term1*term2*term3
+        sum_distance = self.calc_factors_distances(entry)
+        term1 = 2 * (obseved_val - self.projection_tanh(sum_distance))
+        term2 = (-self.phai) * (1 - np.tanh(sum_distance) ** 2)
+        term3 = self.calc_factors_distances(entry, differential=1)
 
-    def calc_ascent(self,loss,entry):
-        q=2
+        return term1 * term2 * term3 / len(tensor)
+
+    def calc_ascent(self, loss, entry, tensor):
+        q = 2
         hessian = self.calc_hessian(entry)
-        return q * self.L * loss + q * (q-1) * 1 * hessian
-    
-    def calc_hessian(self,entry):
+        return q * self.L * loss + q * (q - 1) * 1 * hessian / len(tensor)
+
+    def calc_hessian(self, entry):
         c = self.negative_curvature
-        diff_D =  self.calc_factors_distances(entry,differential=1)
+        diff_D = self.calc_factors_distances(entry, differential=1)
         sum_distance = self.calc_factors_distances(entry)
         tanh_D = np.tanh(sum_distance)
 
-        observed_val=entry[-1];
-        estimated_val=self.projection_tanh(sum_distance)
-        error = (observed_val-estimated_val)**2
-
-        mobius_addition_sum = self.calc_factors_distances(entry,differential=2)
-
-        const = (-2)*self.phai
-        term1 = self.phai*tanh_D**2*(1-tanh_D**2)*diff_D**2
-        term2 = error*(-2)*tanh_D*diff_D**2
-        term3 = error*(1-tanh_D**2) * (-np.sqrt(c)*mobius_addition_sum) * ((np.sqrt(c)*mobius_addition_sum)**2-1)
-
-        return const*(term1+term2+term3)
-
-    def calc_loss(self,tensor):
-        sum_error=0
-        for entry in tqdm(tensor):    
-            sum_error += self.calc_entry_error(entry)
-        return sum_error
-
-    def calc_entry_error(self,entry):
         observed_val = entry[-1]
-        sum_distance = self.calc_factors_distances(entry)        
         estimated_val = self.projection_tanh(sum_distance)
-        return (observed_val-estimated_val)**2
-        
+        error = (observed_val - estimated_val) ** 2
 
-    def calc_factors_distances(self,entry,differential=0):
+        mobius_addition_sum = self.calc_factors_distances(entry, differential=2)
+
+        const = (-2) * self.phai
+        term1 = self.phai * tanh_D**2 * (1 - tanh_D**2) * diff_D**2
+        term2 = error * (-2) * tanh_D * diff_D**2
+        term3 = (
+            error
+            * (1 - tanh_D**2)
+            * (-np.sqrt(c) * mobius_addition_sum)
+            * ((np.sqrt(c) * mobius_addition_sum) ** 2 - 1)
+        )
+
+        return const * (term1 + term2 + term3)
+
+    def calc_loss(self, tensor, tqdm_=False):
+        sum_error = 0
+        if tqdm_:
+            for entry in tqdm(tensor):
+                sum_error += self.calc_entry_error(entry)
+        else:
+            for entry in tensor:
+                sum_error += self.calc_entry_error(entry)
+
+        return sum_error / len(tensor)
+
+    def calc_entry_error(self, entry):
+        observed_val = entry[-1]
+        sum_distance = self.calc_factors_distances(entry)
+        estimated_val = self.projection_tanh(sum_distance)
+        # print(f"observed_val:{observed_val}")
+        # print(f"estimated_val:{estimated_val}")
+        return (observed_val - estimated_val) ** 2
+
+    def calc_factors_distances(self, entry, differential=0):
         for order, (each_entity, factor) in enumerate(zip(entry, self.factors)):
-        # for entity, factor in zip(entry[:self.order],self.factors):
-            self.target_vectors[order] = factor[each_entity,:]
-        sum_distance=0
+            # for entity, factor in zip(entry[:self.order],self.factors):
+            self.target_vectors[order] = factor[each_entity, :]
+        sum_distance = 0
         for perm in self.permutations:
             ind1, ind2 = perm
-            sum_distance += self.calc_distance(self.target_vectors[ind1],self.target_vectors[ind2],differential) 
-            
+            sum_distance += self.calc_distance(
+                self.target_vectors[ind1], self.target_vectors[ind2], differential
+            )
+
         return sum_distance
 
     # def update_target_vectors(self,entry):
-        
-    def projection_tanh(self,val):
-        return self.phai*(1-np.tanh(val))
+
+    def projection_tanh(self, val):
+        return self.phai * (1 - np.tanh(val))
 
     def calc_distance(self, a, b, differential=0):
         sqrt_c = np.sqrt(self.negative_curvature)
-        mobius_addition = self.mobius_addition(-a,b)
-        n_mobius = np.sqrt(np.inner(mobius_addition,mobius_addition))
-        if differential==0:
-            dist = 2/sqrt_c * np.arccosh(sqrt_c*(n_mobius+1))
+        mobius_addition = self.mobius_addition(-a, b)
+        n_mobius = np.sqrt(np.inner(mobius_addition, mobius_addition))
+        if differential == 0:
+            dist = 2 / sqrt_c * np.arccosh(sqrt_c * (n_mobius + 1))
             # dist = 2/sqrt_c * np.arccosh(sqrt_c*(n_mobius))
-        elif differential==1:
-            dist = 2/sqrt_c / ((sqrt_c*(n_mobius+1))**2-1)
+        elif differential == 1:
+            dist = 2 / sqrt_c / ((sqrt_c * (n_mobius + 1)) ** 2 - 1)
+            # dist = 2/sqrt_c / ((sqrt_c*(n_mobius))**2-1)
         else:
-            dist = mobius_addition        
+            dist = n_mobius
 
         return dist
 
-    def mobius_addition(self, a,b):
-        inner_ab=np.inner(a,b)
-        n_a = np.inner(a,a)
-        n_b = np.inner(b,b)
+    def mobius_addition(self, a, b):
+        inner_ab = np.inner(a, b)
+        n_a = np.inner(a, a)
+        n_b = np.inner(b, b)
         c = self.negative_curvature
-        
-        num = (1+2*c*inner_ab+c*n_b)*a + (1-c*n_a)*b
-        den = 1+2*c*inner_ab+c**2*n_a*n_b
-        
-        return num / den # as vector 
+
+        num = (1 + 2 * c * inner_ab + c * n_b) * a + (1 - c * n_a) * b
+        den = 1 + 2 * c * inner_ab + c**2 * n_a * n_b
+
+        return num / den  # as vector

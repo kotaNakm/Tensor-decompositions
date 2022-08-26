@@ -6,8 +6,10 @@ import os
 import shutil
 import random
 from AGH import AGH
+import dill
 
 import sys
+
 sys.path.append("_src")
 import utils
 
@@ -27,14 +29,20 @@ if __name__ == "__main__":
     # model
     parser.add_argument("--rank", type=int, default=20)
     parser.add_argument("--initial_gamma", type=float, default=0.01)
-    parser.add_argument("--l0", type=float, default=100)
+    parser.add_argument("--l0", type=float, default=0.5)
     parser.add_argument("--L", type=float, default=0.5)
     parser.add_argument("--n_iter", type=int, default=30)
 
     parser.add_argument(
-        "--optimization", type=str, choices=["full", "wo_gradient_ascent","wo_adaptive_steps"], default="full"
+        "--optimization",
+        type=str,
+        choices=["full", "wo_gradient_ascent", "wo_adaptive_steps"],
+        default="full",
     )
     parser.add_argument("--negative_curvature", type=float, default=1)
+
+    # experimenantal setup
+    parser.add_argument("--train_ratio", type=float, default=0.7)
 
     args = parser.parse_args()
 
@@ -48,24 +56,22 @@ if __name__ == "__main__":
     value_column = args.value_column
 
     raw_df = utils.import_dataframe(args)
-    encoded_df = utils.prepare_tensor(
-        raw_df,
-        entities,
-        value_column
-    )
+    encoded_df = utils.prepare_tensor(raw_df, entities, value_column)
 
     # Model configuration
     phai = encoded_df[value_column].max()
 
-    tensor_shape = (encoded_df[entities].max()+1).values.astype(int)
+    tensor_shape = (encoded_df[entities].max() + 1).values.astype(int)
     encoded_tensor = encoded_df.to_numpy()
-    
-    shuffuled_idxs = random.sample(list(range(len(encoded_tensor))),len(encoded_tensor))
-    shuffuled_tensor= encoded_tensor[shuffuled_idxs]
-    train_len=int(len(shuffuled_tensor)*0.01)
+
+    shuffuled_idxs = random.sample(
+        list(range(len(encoded_tensor))), len(encoded_tensor)
+    )
+    shuffuled_tensor = encoded_tensor[shuffuled_idxs]
+    train_len = int(len(shuffuled_tensor) * args.train_ratio)
     train_tensor = shuffuled_tensor[:train_len]
     test_tensor = shuffuled_tensor[train_len:]
-    
+
     agh = AGH(
         tensor_shape,
         args.rank,
@@ -75,11 +81,13 @@ if __name__ == "__main__":
         args.negative_curvature,
         args.optimization,
         phai,
-        args.n_iter
+        args.n_iter,
     )
 
-    factors,loss_logs = agh.train(
+    factors, loss_logs = agh.train(
         train_tensor,
     )
 
-    np.save(f"{args.out_dir}/loss_logs",loss_logs)
+    np.save(f"{args.out_dir}/loss_logs", loss_logs)
+    dill.dump([agh], open(f"{outputdir}/result.dill", "wb"))
+    print(outputdir)
