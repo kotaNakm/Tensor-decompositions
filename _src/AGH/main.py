@@ -4,13 +4,14 @@ from sklearn import preprocessing
 import argparse
 import os
 import shutil
+import random
 from AGH import AGH
 
 import sys
 sys.path.append("_src")
 import utils
 
-
+random.seed(100)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -26,7 +27,10 @@ if __name__ == "__main__":
     # model
     parser.add_argument("--rank", type=int, default=20)
     parser.add_argument("--initial_gamma", type=float, default=0.01)
-    parser.add_argument("--q", type=int, default=2)
+    parser.add_argument("--l0", type=float, default=100)
+    parser.add_argument("--L", type=float, default=0.5)
+    parser.add_argument("--n_iter", type=int, default=30)
+
     parser.add_argument(
         "--optimization", type=str, choices=["full", "wo_gradient_ascent","wo_adaptive_steps"], default="full"
     )
@@ -56,23 +60,26 @@ if __name__ == "__main__":
     tensor_shape = (encoded_df[entities].max()+1).values.astype(int)
     encoded_tensor = encoded_df.to_numpy()
     
-    # TODO:randmize train_tensor vs test tensor
-
-    train_len=int(len(encoded_tensor)*0.01)
-    train_tensor = encoded_tensor[:train_len]
-    test_tensor = encoded_tensor[train_len:]
-    
+    shuffuled_idxs = random.sample(list(range(len(encoded_tensor))),len(encoded_tensor))
+    shuffuled_tensor= encoded_tensor[shuffuled_idxs]
+    train_len=int(len(shuffuled_tensor)*0.01)
+    train_tensor = shuffuled_tensor[:train_len]
+    test_tensor = shuffuled_tensor[train_len:]
     
     agh = AGH(
         tensor_shape,
         args.rank,
         args.initial_gamma,
-        args.q,
+        args.l0,
+        args.L,
         args.negative_curvature,
         args.optimization,
         phai,
+        args.n_iter
     )
 
-    factors = agh.train(
+    factors,loss_logs = agh.train(
         train_tensor,
     )
+
+    np.save(f"{args.out_dir}/loss_logs",loss_logs)

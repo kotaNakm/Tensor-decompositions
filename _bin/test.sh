@@ -15,6 +15,8 @@ python3 _src/AGH/main.py    --input_tag $INPUT \
                             --out_dir $OUTPUT \
                             --entities $entities \
                             --value_column $value_column \
-                            --initial_gamma 0.01 \
+                            --initial_gamma 3 \
+                            --rank 5 \
+                            --n_iter 100 \
                             # 
 fi
