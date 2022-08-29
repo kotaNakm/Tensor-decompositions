@@ -9,11 +9,11 @@ entities="userid/placeid/yr_month"
 value_column="checkins"
 
 
-tag="test_short"
+tag="test"
 train_ratio=0.01
 gamma=0.01
-n_iter=3
-rank=5
+n_iter=10
+rank=25
 
 OUTPUT="_out/"$tag"/train_ratio_"$train_ratio"/rank_"$rank"/gamma_"$gamma"/niter_"$n_iter
 if true;then

@@ -7,7 +7,6 @@ import shutil
 import random
 from AGH import AGH
 import dill
-import pickle
 
 import sys
 
@@ -27,22 +26,11 @@ if __name__ == "__main__":
     parser.add_argument("--value_column", type=str)
     parser.add_argument("--import_type", type=str, default="clean_data")
 
-    # model
+    # Model
     parser.add_argument("--rank", type=int, default=20)
-    parser.add_argument("--initial_gamma", type=float, default=0.01)
-    parser.add_argument("--l0", type=float, default=0.08)
-    parser.add_argument("--L", type=float, default=1)
     parser.add_argument("--n_iter", type=int, default=30)
 
-    parser.add_argument(
-        "--optimization",
-        type=str,
-        choices=["full", "wo_gradient_ascent", "wo_adaptive_steps"],
-        default="full",
-    )
-    parser.add_argument("--negative_curvature", type=float, default=1)
-
-    # experimenantal setup
+    # Experimenantal setup
     parser.add_argument("--train_ratio", type=float, default=0.7)
 
     args = parser.parse_args()
@@ -73,23 +61,11 @@ if __name__ == "__main__":
     train_tensor = shuffuled_tensor[:train_len]
     test_tensor = shuffuled_tensor[train_len:]
 
-    agh = AGH(
-        tensor_shape,
-        args.rank,
-        args.initial_gamma,
-        args.l0,
-        args.L,
-        args.negative_curvature,
-        args.optimization,
-        phai,
-        args.n_iter,
-    )
 
     factors, loss_logs = agh.train(
         train_tensor,
     )
 
     # np.save(f"{args.out_dir}/loss_logs", loss_logs)
-    with open(f"{outputdir}/result.pkl","wb") as f:
-        pickle.dump(agh,f)
+    # dill.dump([factors,loss_logs], open(f"{outputdir}/result.dill", "wb"))
     print(outputdir)
