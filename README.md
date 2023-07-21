@@ -1,4 +1,4 @@
-# Tensor_decompositions
+# Tensor-decompositions
 Implementation of some tensor decompositions for my personal use.\
 **UNDER CONSTRACTION**
 
