@@ -1,6 +1,6 @@
 # Tensor-decompositions
 Implementation of some tensor decompositions for my personal use.\
-**UNDER CONSTRACTION**
+:construction: **UNDER CONSTRACTION** :construction:
 
 * Low-rank Nonnegative Tensor Decomposition in Hyperbolic Space (KDD'22)
 
@@ -13,6 +13,6 @@ poetry install
 poetry shell
 
 # set kernel for jupyter notebook
-ipython kernel install --user --name="tensor-decompositions-kshbHvMa-py3.9" 
+ipython kernel install --user --name="tensor-decompositions-py3.9" 
 ```
 
