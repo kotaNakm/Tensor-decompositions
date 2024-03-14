@@ -1,10 +1,8 @@
 cd `dirname $0`
 cd ..
 
-
 INPUT="gowalla"
 input_type="AGH_experiment1"
-
 entities="userid/placeid/yr_month"
 value_column="checkins"
 
@@ -15,7 +13,12 @@ n_iter=20
 rank=5
 l0=1e-100
 
+<<<<<<< HEAD
 OUTPUT="_out/"$tag"/train_ratio_"$train_ratio"/rank_"$rank"/gamma_"$gamma"/l0_"$l0"/niter_"$n_iter
+=======
+OUTPUT="_out/"$tag"/train_ratio_"$train_ratio"/rank_"$rank"/gamma_"$gamma"/niter_"$n_iter
+
+>>>>>>> refs/remotes/origin/main
 if true;then
 python3 _src/AGH/main.py    --input_tag $INPUT \
                             --input_type $input_type \
