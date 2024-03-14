@@ -31,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument("--rank", type=int, default=20)
     parser.add_argument("--initial_gamma", type=float, default=0.01)
     parser.add_argument("--l0", type=float, default=0.08)
-    parser.add_argument("--L", type=float, default=1)
+    parser.add_argument("--L", type=float, default=0.1)
     parser.add_argument("--n_iter", type=int, default=30)
 
     parser.add_argument(

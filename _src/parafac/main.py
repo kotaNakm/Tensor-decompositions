@@ -46,7 +46,6 @@ if __name__ == "__main__":
 
     raw_df = utils.import_dataframe(args)
     encoded_df = utils.prepare_tensor(raw_df, entities, value_column)
-
     # Model configuration
     phai = encoded_df[value_column].max()
 
