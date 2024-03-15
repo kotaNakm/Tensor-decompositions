@@ -5,7 +5,6 @@ import argparse
 import os
 import shutil
 import random
-from AGH import AGH
 import dill
 
 import sys

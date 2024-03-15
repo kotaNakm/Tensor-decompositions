@@ -5,14 +5,14 @@ import argparse
 import os
 import shutil
 import random
-from AGH import AGH
 import dill
 import pickle
 
 import sys
 
-sys.path.append("_src")
+sys.path.append("factorization")
 import utils
+from agh import AGH
 
 random.seed(100)
 
