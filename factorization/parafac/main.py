@@ -6,6 +6,9 @@ import os
 import shutil
 import random
 import dill
+import torch
+import torch.nn.functional as F
+
 
 import sys
 sys.path.append("factorization")
@@ -47,9 +50,6 @@ if __name__ == "__main__":
 
     raw_df = utils.import_dataframe(args)
     encoded_df = utils.prepare_tensor(raw_df, entities, value_column)
-    # Model configuration
-    phai = encoded_df[value_column].max()
-
     tensor_shape = (encoded_df[entities].max() + 1).values.astype(int)
     encoded_tensor = encoded_df.to_numpy()
 
@@ -61,9 +61,11 @@ if __name__ == "__main__":
     train_tensor = shuffuled_tensor[:train_len]
     test_tensor = shuffuled_tensor[train_len:]
 
-
     parafac = PARAFAC(tensor_shape, args.rank)
-    factors, loss_logs = parafac.train(train_tensor, args.n_iter)
+    for a in parafac.parameters():
+        print(a)
+    optimizer = torch.optim.SGD(parafac.parameters(), lr=1e-6)
+    factors = utils.training_tensors_torch(parafac, train_tensor, args.n_iter, optimizer)
 
     # np.save(f"{args.out_dir}/loss_logs", loss_logs)
     # dill.dump([factors,loss_logs], open(f"{outputdir}/result.dill", "wb"))

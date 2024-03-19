@@ -2,7 +2,7 @@ cd `dirname $0`
 cd ..
 
 INPUT="synthetic"
-input_type="10,100,20"
+input_type="10,10,20"
 entities="entity1/entity2/entity3"
 value_column="value"
 
@@ -16,7 +16,7 @@ l0=1e-100
 
 # if true;then
 if false;then
-OUTPUT="_out/"$tag"/train_ratio_"$train_ratio"/rank_"$rank"/gamma_"$gamma"/l0_"$l0"/niter_"$n_iter
+OUTPUT="_out/"$INPUT"/"$input_type"/train_ratio_"$train_ratio"/rank_"$rank"/gamma_"$gamma"/l0_"$l0"/niter_"$n_iter"/tag_"$tag
 python3 factorization/agh/main.py    --input_tag $INPUT \
                             --input_type $input_type \
                             --out_dir $OUTPUT \
@@ -33,7 +33,7 @@ fi
 
 if true;then
 # if false;then
-OUTPUT="_out/"$tag"/train_ratio_"$train_ratio"/rank_"$rank"/niter_"$n_iter
+OUTPUT="_out/"$INPUT"/"$input_type"/train_ratio_"$train_ratio"/rank_"$rank"/niter_"$n_iter"/tag_"$tag
 python3 factorization/parafac/main.py    --input_tag $INPUT \
                             --input_type $input_type \
                             --out_dir $OUTPUT \

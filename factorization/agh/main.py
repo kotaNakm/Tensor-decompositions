@@ -59,9 +59,6 @@ if __name__ == "__main__":
     raw_df = utils.import_dataframe(args)
     encoded_df = utils.prepare_tensor(raw_df, entities, value_column)
 
-    # Model configuration
-    phai = encoded_df[value_column].max()
-
     tensor_shape = (encoded_df[entities].max() + 1).values.astype(int)
     encoded_tensor = encoded_df.to_numpy()
 
@@ -72,6 +69,10 @@ if __name__ == "__main__":
     train_len = int(len(shuffuled_tensor) * args.train_ratio)
     train_tensor = shuffuled_tensor[:train_len]
     test_tensor = shuffuled_tensor[train_len:]
+
+    # Model configuration
+    phai = encoded_df[value_column].max()
+
 
     agh = AGH(
         tensor_shape,
