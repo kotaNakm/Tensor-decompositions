@@ -16,7 +16,12 @@ sys.path.append("factorization")
 import utils
 from parafac import PARAFAC
 
-random.seed(100)
+seed = 100
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -33,6 +38,8 @@ if __name__ == "__main__":
     parser.add_argument("--rank", type=int, default=20)
     parser.add_argument("--n_iter", type=int, default=30)
     parser.add_argument("--optim",type=str,default="aaaaaaa") #TODO
+    parser.add_argument("--lr",type=float,default=1e-3) #TODO
+
 
     # Experimenantal setup
     parser.add_argument("--train_ratio", type=float, default=0.7)
@@ -64,9 +71,10 @@ if __name__ == "__main__":
     parafac = PARAFAC(tensor_shape, args.rank)
     for a in parafac.parameters():
         print(a)
-    optimizer = torch.optim.SGD(parafac.parameters(), lr=1e-6)
+
+    optimizer = torch.optim.Adagrad(parafac.parameters(), lr=args.lr)
     factors = utils.training_tensors_torch(parafac, train_tensor, args.n_iter, optimizer)
 
+    print(outputdir)
     # np.save(f"{args.out_dir}/loss_logs", loss_logs)
     # dill.dump([factors,loss_logs], open(f"{outputdir}/result.dill", "wb"))
-    print(outputdir)

@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
+from tqdm import tqdm
 
 from importlib import import_module
+
 
 import sys
 sys.path.append("_dat")
@@ -49,15 +51,19 @@ def prepare_tensor(given_data, entities, value_column):
 
 
 def training_tensors_torch(model, data, n_iter, optimizer):
-    indices = data[:,:-1]
+    indices = data[:,:-1].astype(int)
     values = data[:,-1]
-    # print(self.parameters())
 
-    for index, value, it in zip(indices, values, np.arange(n_iter)):
-        print(index)
-        output = model.forward(index)
-        loss_out = model.loss(value, output)
+    for it in range(n_iter):
+        loss_out=0
+        output = model.forward()
+        for index, value in zip(indices, values):
+            loss_out += model.loss(value, output, index)
         optimizer.zero_grad()
         loss_out.backward()
         optimizer.step()
+
+        # if it % 10 == 9:
+        print(it, loss_out.item())
+
     return model.factors

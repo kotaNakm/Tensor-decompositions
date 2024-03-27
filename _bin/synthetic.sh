@@ -6,16 +6,16 @@ input_type="10,10,20"
 entities="entity1/entity2/entity3"
 value_column="value"
 
-tag="test"
 train_ratio=0.7
-gamma=0.1
-n_iter=20
-rank=5
-l0=1e-100
 
 
 # if true;then
 if false;then
+tag="test"
+gamma=0.1
+n_iter=100
+rank=5
+l0=1e-100
 OUTPUT="_out/"$INPUT"/"$input_type"/train_ratio_"$train_ratio"/rank_"$rank"/gamma_"$gamma"/l0_"$l0"/niter_"$n_iter"/tag_"$tag
 python3 factorization/agh/main.py    --input_tag $INPUT \
                             --input_type $input_type \
@@ -33,6 +33,11 @@ fi
 
 if true;then
 # if false;then
+tag="test"
+n_iter=1000
+rank=5
+lr=1e-1
+
 OUTPUT="_out/"$INPUT"/"$input_type"/train_ratio_"$train_ratio"/rank_"$rank"/niter_"$n_iter"/tag_"$tag
 python3 factorization/parafac/main.py    --input_tag $INPUT \
                             --input_type $input_type \
@@ -42,5 +47,6 @@ python3 factorization/parafac/main.py    --input_tag $INPUT \
                             --train_ratio $train_ratio \
                             --rank $rank \
                             --n_iter $n_iter \
+                            --lr $lr \
                             # 
 fi
