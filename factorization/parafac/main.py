@@ -58,23 +58,20 @@ if __name__ == "__main__":
     raw_df = utils.import_dataframe(args)
     encoded_df = utils.prepare_tensor(raw_df, entities, value_column)
     tensor_shape = (encoded_df[entities].max() + 1).values.astype(int)
-    encoded_tensor = encoded_df.to_numpy()
+    nonzero_records = encoded_df.to_numpy()
 
-    shuffuled_idxs = random.sample(
-        list(range(len(encoded_tensor))), len(encoded_tensor)
-    )
-    shuffuled_tensor = encoded_tensor[shuffuled_idxs]
-    train_len = int(len(shuffuled_tensor) * args.train_ratio)
-    train_tensor = shuffuled_tensor[:train_len]
-    test_tensor = shuffuled_tensor[train_len:]
-
+    nonzero_records_train, nonzero_records_test = utils.train_test_split(nonzero_records, args.train_ratio)
+    train_tensor = utils.nz_records_to_tensor(nonzero_records_train, tensor_shape)
+    
     parafac = PARAFAC(tensor_shape, args.rank)
     for a in parafac.parameters():
         print(a)
 
     optimizer = torch.optim.Adagrad(parafac.parameters(), lr=args.lr)
-    factors = utils.training_tensors_torch(parafac, train_tensor, args.n_iter, optimizer)
-
+    factors = parafac.training_tensor(train_tensor, args.n_iter, optimizer)
+    re_tensor = parafac.forward().detach().numpy()
+    erorr = (train_tensor - re_tensor)**2
+    print(erorr)
     print(outputdir)
     # np.save(f"{args.out_dir}/loss_logs", loss_logs)
     # dill.dump([factors,loss_logs], open(f"{outputdir}/result.dill", "wb"))

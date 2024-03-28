@@ -8,24 +8,19 @@ import torch
 import torch.nn.functional as F
 import string
 
-
 class PARAFAC(torch.nn.Module):
     """
     it supports arbitrary order tensors
     """
 
     def __init__(self, tensor_shape, rank):
-
         super().__init__()
         self.tensor_shape = tensor_shape
         self.rank = rank
         self.n_order = len(tensor_shape)
-        print(tensor_shape)
+        
+        print(f"Tensor shape:{tensor_shape}")
 
-        # self.U= torch.nn.Parameter(torch.randn(rank, tensor_shape[0])/100., requires_grad=True)
-        # self.V= torch.nn.Parameter(torch.randn(rank, tensor_shape[1])/100., requires_grad=True)
-        # self.W= torch.nn.Parameter(torch.randn(rank, tensor_shape[2])/100., requires_grad=True)
-         
         self.factors = []
         for i, n_dim in enumerate(tensor_shape):
             temp = torch.nn.Parameter(torch.randn(rank, n_dim)/100., requires_grad=True)
@@ -33,49 +28,65 @@ class PARAFAC(torch.nn.Module):
         self.factors = torch.nn.ParameterList([f for f in self.factors])
 
         src_str=""
-        out_str="" 
+        out_str=""
         for mode in range(self.n_order):
             target_alphabet = string.ascii_lowercase[mode]
             src_str += "k" + target_alphabet + ","
             out_str += target_alphabet
-        self.ein_str = src_str[:-1] + "->" + out_str
-        print(self.ein_str)
+        self.ein_str = src_str[:-1] + "->" + out_str #e.g., ak,bk,ck ->abc
+        print(f"einsum:{self.ein_str}")
 
     def forward(self):
-        # reconstract tensor by factors
-        # re_tensor = torch.zeros(*self.tensor_shape)
-        # for ra in range(self.rank):
-        #     UV = torch.outer(self.U[ra,:], self.V[ra,:])
-        #     print(UV.shape)
-        #     UV2 = UV.unsqueeze(2).repeat(1,1,self.tensor_shape[2]) # shape
-        #     print(UV2.shape)
-        #     W2 = self.W[ra,:].unsqueeze(0).unsqueeze(1).repeat(self.tensor_shape[0],self.tensor_shape[1],1)
-        #     print(W2.shape)
-        #     temp_tensor = UV2 * W2
-        #     exit()
-        #     re_tensor += temp_tensor
         re_tensor = torch.einsum(self.ein_str, *self.factors)
         return re_tensor
 
-        # temp_matrix = torch.outer(self.factors[0][ra,:], self.factors[1][ra,:])     
-        #  for mode in range(2, self.n_order):
-        #     temp = torch.outer(temp_matrix, self.factors[mode][ra,:])
-
-        # """
-        # l x m x n
-        # UV = torch.outer(u, v)
-        # UV2 = UV.unsqueeze(2).repeat(1,1,n) # shape
-        # W2 = w.unsqueeze(0).unsqueeze(1).repeat(l,m,1)
-        # outputs = UV2 * W2  
-        # """
-        
-    def loss(self, data, output, index): 
+    def loss_record(self, data, output, index): 
         mse = (torch.tensor(data,dtype=torch.float32) - output[tuple(index)])**2 # use tuple if you directly refer a elements avoiding fancy indexing
-
         # criterion = torch.nn.MSELoss()#reduction='sum'
-        # mse = criterion(output[tuple(index)], torch.tensor(data,dtype=torch.float32))
-        # print(output[tuple(index)].dtype)
-        # print(torch.tensor(data).dtype)
-        # mse.requires_grad = True
-        
+        # mse = criterion(output[tuple(index)], torch.tensor(data,dtype=torch.float32))        
         return mse
+
+    def loss_tensor(self, tensor_data, output): 
+        mse = ((torch.tensor(tensor_data,dtype=torch.float32) - output)**2).sum() # use tuple if you directly refer a elements avoiding fancy indexing
+        # criterion = torch.nn.MSELoss()#reduction='sum'
+        # mse = criterion(output[tuple(index)], torch.tensor(data,dtype=torch.float32))        
+        return mse
+
+
+    def training_tensor(self, tensor_data, n_iter, optimizer, loss_print_interval=10,tol=1e-2):        
+        for it in range(n_iter):
+            loss_out=0
+            output = self.forward()
+            loss_out = self.loss_tensor(tensor_data, output) 
+            optimizer.zero_grad()
+            loss_out.backward()
+            optimizer.step()
+            loss_val = loss_out.item()
+            
+            if it % loss_print_interval == 0:
+                print(f"{it}: {loss_val}")
+            if loss_val<tol:
+                print(f"early stop at {it}")
+                break
+        return self.factors
+
+    def training_record(self, record_data, n_iter, optimizer, loss_print_interval=10,tol=1e-2):
+        indices = data[:,:-1].astype(int)
+        values = data[:,-1]
+
+        for it in range(n_iter):
+            loss_out=0
+            output = self.forward()
+            for index, value in zip(indices, values):
+                loss_out += self.loss_record(value, output, index)
+            optimizer.zero_grad()
+            loss_out.backward()
+            optimizer.step()
+            loss_val = loss_out.item()
+            if it % loss_print_interval == 0:
+                print(f"{it}: {loss_val}")
+            if loss_val<tol:
+                print(f"early stop at {it}")
+                break
+
+        return self.factors

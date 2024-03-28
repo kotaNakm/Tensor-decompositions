@@ -34,10 +34,9 @@ fi
 if true;then
 # if false;then
 tag="test"
-n_iter=1000
-rank=5
-lr=1e-1
-
+n_iter=400000
+rank=10
+lr=0.1
 OUTPUT="_out/"$INPUT"/"$input_type"/train_ratio_"$train_ratio"/rank_"$rank"/niter_"$n_iter"/tag_"$tag
 python3 factorization/parafac/main.py    --input_tag $INPUT \
                             --input_type $input_type \
