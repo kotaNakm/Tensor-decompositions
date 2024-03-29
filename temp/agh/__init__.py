@@ -70,7 +70,7 @@ class AGH(object):
         print("Train Tensor:")
         print(train_tensor)
         for _ in range(self.n_iter):
-            loss = self.calc_loss(train_tensor, tqdm_=True)
+            loss = self.calc_loss(train_tensor, tqdm_=True) / len(train_tensor)
             print(f"n_iter:{_}, exact_loss:{loss}")
             samples = random.sample(range(len(train_tensor)), len(train_tensor))
             for i in tqdm(samples):
@@ -79,49 +79,60 @@ class AGH(object):
                 for target_factor_ind in range(self.order):
                     # print(f"order:{target_factor_ind}")
                     # loss = self.optimizer(train_tensor, target_factor_ind,entry)
-                    self.optimizer(train_tensor, target_factor_ind,entry,loss)
+                    post_entry_error = self.optimizer(train_tensor, target_factor_ind,entry,loss)
                     # print(f"DONE! Optimization of Factor U^{target_factor_ind+1}")
-                post_entry_error = self.calc_entry_error(entry)
-                loss -= pre_entry_error - post_entry_error
+                loss -= (pre_entry_error - post_entry_error) / len(train_tensor)
                 self.loss_logs.append(loss)
                 print(f"approximated_loss:{loss}")
         return self.factors, self.loss_logs
 
     def optimizer(self, tensor, target_factor_ind,entry,loss):
         optimized_entity = entry[target_factor_ind]    
-        gradient_descent = self.update_factor_gradient(target_factor_ind,optimized_entity,loss,tensor,entry)   
+        gradient_descent, g_w = self.update_factor_gradient(target_factor_ind,optimized_entity,loss,tensor,entry)   
         self.gradient_logs.append(gradient_descent)
+        return g_w
 
     def update_factor_gradient(self,target_factor_ind,optimized_entity,loss,tensor,entry):
-        gradient_descent=0
-        
-        if loss/len(tensor) > self.l0: 
-            # gradient Descent  
-            # setup gamma
-            n_vec = np.sqrt(
-                np.inner(
-                    self.factors[target_factor_ind][optimized_entity, :],
-                    self.factors[target_factor_ind][optimized_entity, :]
+        g_w = self.l0
+        gradient_descent = 0
+        n_inner_iter = 10
+
+        for _ in range(n_inner_iter):
+            if g_w >= self.l0:
+                # gradient Descent  
+                # setup gamma
+                n_vec = np.sqrt(
+                    np.inner(
+                        self.factors[target_factor_ind][optimized_entity, :],
+                        self.factors[target_factor_ind][optimized_entity, :]
+                    )
                 )
-            )
-            gamma = self.initial_gamma * np.exp(-n_vec) 
-            gamma = ZERO if gamma < ZERO else gamma
-            gradient_descent = self.calc_descent(entry, tensor)
-            # print(f"Gradient:{gradient_descent}")
-            # update factor
-            self.factors[target_factor_ind][optimized_entity, :] -= gamma * gradient_descent
-        
-        else:
-            # gradient Ascent with upper-bound of the Lipschitz constant
-            Lq_w = self.calc_ascent(loss, entry, tensor)
-            print("[Jump out]")
-            print(f"Ascent:{Lq_w}")
-            exit()
-            # update factor
-            self.factors[target_factor_ind][optimized_entity, :] += Lq_w
-        # print(self.factors[target_factor_ind][optimized_entity, :])
-        
-        return gradient_descent
+                gamma = self.initial_gamma * np.exp(-n_vec) 
+                gamma = ZERO if gamma < ZERO else gamma
+                gradient_descent = self.calc_descent(entry, tensor, target_factor_ind)
+                # print(f"Gradient:{gradient_descent}")
+
+                # update factor
+                self.factors[target_factor_ind][optimized_entity, :] -= gamma * gradient_descent
+
+            else:
+                # gradient Ascent with upper-bound of the Lipschitz constant
+                Lq_w = self.calc_ascent(g_w, entry, tensor)
+                print(f"previous Gradient:{gradient_descent}")
+                print(f"previous_g_w:{g_w}")
+                print("[Jump out]")
+                print(f"Ascent:{Lq_w}")
+                # update factor
+                self.factors[target_factor_ind][optimized_entity, :] += Lq_w
+                g_w = self.calc_entry_error(entry)
+                print(f"g_w:{g_w}")
+                
+            # print(self.factors[target_factor_ind][optimized_entity, :])
+            g_w = self.calc_entry_error(entry)
+        #     print(g_w)
+        # exit()
+
+        return gradient_descent, g_w
 
     def clip_subtensor_for_entry(self,tensor,entry,target_factor_ind):
         # clip subtensor which contains optimized_entity
@@ -130,12 +141,12 @@ class AGH(object):
         # approximate loss using maximum 50 samples
         cliped_tensor = tensor[contain_idxs_mode[:50]]
 
-    def calc_descent(self, entry, tensor):
+    def calc_descent(self, entry,target_factor_ind):
         obseved_val = entry[-1]
         sum_distance = self.calc_factors_distances(entry)
         term1 = 2 * (obseved_val - self.projection_tanh(sum_distance))
         term2 = (-self.phai) * (1 - np.tanh(sum_distance) ** 2)
-        term3 = self.calc_factors_distances(entry, differential=1)
+        term3 = self.calc_defferential_1(entry, target_factor_ind)
 
         return term1 * term2 * term3 
 
@@ -201,24 +212,43 @@ class AGH(object):
             )
         return sum_distance
 
+    def calc_defferential_1(self, entry, target_factor_ind):        
+        calc_modes= range(self.order) 
+        calc_modes.remove(target_factor_ind)
+        sum_distance = 0
+        sqrt_c = np.sqrt(self.negative_curvature)
+
+        target_w = self.factors[target_factor_ind][entry[target_factor_ind],:]
+        for m in calc_modes:
+            n_mobius = self.calc_n_mobious(target_w, self.factors[m][entry[m],:])
+            dist = 2 / sqrt_c * 1 / np.sqrt(((sqrt_c * (n_mobius + 1)) ** 2 - 1))
+            sum_distance += dist
+            
+        return sum_distance
+        
     def projection_tanh(self, val):
         return self.phai * (1 - np.tanh(val))
 
     def calc_distance(self, a, b, differential=0):
         sqrt_c = np.sqrt(self.negative_curvature)
-        mobius_addition = self.mobius_addition(-a, b)
-        n_mobius = np.sqrt(np.inner(mobius_addition, mobius_addition))
-        n_mobius = n_mobius if n_mobius > ZERO else ZERO
+        n_mobius = self.calc_n_mobious(a,b)
+        
         if differential == 0:
             dist = 2 / sqrt_c * np.arccosh(sqrt_c * (n_mobius + 1))
             # dist = 2/sqrt_c * np.arccosh(sqrt_c*(n_mobius))
         elif differential == 1:
-            dist = 2 / sqrt_c / ((sqrt_c * (n_mobius + 1)) ** 2 - 1)
+            dist = 2 / sqrt_c * 1 / np.sqrt(((sqrt_c * (n_mobius + 1)) ** 2 - 1))
             # dist = 2/sqrt_c / ((sqrt_c*(n_mobius))**2-1)
         else:
             dist = n_mobius
-
         return dist
+
+    def calc_n_mobious(self, a, b):
+        mobius_addition = self.mobius_addition(-a, b)
+        n_mobius = np.sqrt(np.inner(mobius_addition, mobius_addition))
+        n_mobius = n_mobius if n_mobius > ZERO else ZERO
+
+        return n_mobius
 
     def mobius_addition(self, a, b):
         inner_ab = np.inner(a, b)

@@ -8,9 +8,13 @@ Implementation of some tensor decompositions for my personal use.\
 
 ## Setup
 ```bash
+# if your python environment differs form poetry.toml
+pyenv local 3.*.*
+
 # install libraries
 poetry install
- 
+
+# run shell
 poetry shell
 
 # set kernel for jupyter notebook

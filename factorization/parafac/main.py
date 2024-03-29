@@ -5,15 +5,23 @@ import argparse
 import os
 import shutil
 import random
-from AGH import AGH
 import dill
+import torch
+import torch.nn.functional as F
+
 
 import sys
+sys.path.append("factorization")
 
-sys.path.append("_src")
 import utils
+from parafac import PARAFAC
 
-random.seed(100)
+seed = 100
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -29,6 +37,9 @@ if __name__ == "__main__":
     # Model
     parser.add_argument("--rank", type=int, default=20)
     parser.add_argument("--n_iter", type=int, default=30)
+    parser.add_argument("--optim",type=str,default="aaaaaaa") #TODO
+    parser.add_argument("--lr",type=float,default=1e-3) #TODO
+
 
     # Experimenantal setup
     parser.add_argument("--train_ratio", type=float, default=0.7)
@@ -46,26 +57,21 @@ if __name__ == "__main__":
 
     raw_df = utils.import_dataframe(args)
     encoded_df = utils.prepare_tensor(raw_df, entities, value_column)
-
-    # Model configuration
-    phai = encoded_df[value_column].max()
-
     tensor_shape = (encoded_df[entities].max() + 1).values.astype(int)
-    encoded_tensor = encoded_df.to_numpy()
+    nonzero_records = encoded_df.to_numpy()
 
-    shuffuled_idxs = random.sample(
-        list(range(len(encoded_tensor))), len(encoded_tensor)
-    )
-    shuffuled_tensor = encoded_tensor[shuffuled_idxs]
-    train_len = int(len(shuffuled_tensor) * args.train_ratio)
-    train_tensor = shuffuled_tensor[:train_len]
-    test_tensor = shuffuled_tensor[train_len:]
+    nonzero_records_train, nonzero_records_test = utils.train_test_split(nonzero_records, args.train_ratio)
+    train_tensor = utils.nz_records_to_tensor(nonzero_records_train, tensor_shape)
+    
+    parafac = PARAFAC(tensor_shape, args.rank)
+    for a in parafac.parameters():
+        print(a)
 
-
-    factors, loss_logs = agh.train(
-        train_tensor,
-    )
-
+    optimizer = torch.optim.Adagrad(parafac.parameters(), lr=args.lr)
+    factors = parafac.training_tensor(train_tensor, args.n_iter, optimizer)
+    re_tensor = parafac.forward().detach().numpy()
+    erorr = (train_tensor - re_tensor)**2
+    print(erorr)
+    print(outputdir)
     # np.save(f"{args.out_dir}/loss_logs", loss_logs)
     # dill.dump([factors,loss_logs], open(f"{outputdir}/result.dill", "wb"))
-    print(outputdir)
