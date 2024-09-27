@@ -3,7 +3,7 @@ Implementation of some tensor decompositions for my personal use.\
 :construction: **UNDER CONSTRACTION** :construction:
 
 * PARAFAC
-* Low-rank Nonnegative Tensor Decomposition in Hyperbolic Space (KDD'22)
+* (Low-rank Nonnegative Tensor Decomposition in Hyperbolic Space (KDD'22))
 
 
 ## Setup
