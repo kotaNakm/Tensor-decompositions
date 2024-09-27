@@ -132,3 +132,6 @@ dmypy.json
 # personal setting 
 _out/*
 .DS_Store
+*csv.gz
+*.npy
+*.pickle

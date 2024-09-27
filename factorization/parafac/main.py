@@ -30,15 +30,15 @@ if __name__ == "__main__":
     parser.add_argument("--input_tag", type=str)  #
     parser.add_argument("--input_type", type=str)  #
     parser.add_argument("--out_dir", type=str)  #
-    parser.add_argument("--entities", type=str)
-    parser.add_argument("--value_column", type=str)
-    parser.add_argument("--import_type", type=str, default="clean_data")
+    # parser.add_argument("--entities", type=str)
+    # parser.add_argument("--value_column", type=str)
+    # parser.add_argument("--import_type", type=str, default="clean_data")
 
     # Model
     parser.add_argument("--rank", type=int, default=20)
     parser.add_argument("--n_iter", type=int, default=30)
-    parser.add_argument("--optim",type=str,default="aaaaaaa") #TODO
     parser.add_argument("--lr",type=float,default=1e-3) #TODO
+    parser.add_argument("--optim",type=str,default="aaaaaaa") #TODO
 
 
     # Experimenantal setup
@@ -52,10 +52,10 @@ if __name__ == "__main__":
         shutil.rmtree(outputdir)
     os.makedirs(outputdir)
 
-    entities = args.entities.split("/")
-    value_column = args.value_column
+    # entities = args.entities.split("/")
+    # value_column = args.value_column
 
-    raw_df = utils.import_dataframe(args)
+    raw_df = utils.import_dataframe(args.input_tag,args.input_type)
     encoded_df = utils.prepare_tensor(raw_df, entities, value_column)
     tensor_shape = (encoded_df[entities].max() + 1).values.astype(int)
     nonzero_records = encoded_df.to_numpy()

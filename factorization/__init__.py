@@ -1,4 +1,5 @@
 """Factorization methods."""
 
 from .agh import AGH
-__all__ = ["AGH"]
+from .parafac import PARAFAC
+__all__ = ["AGH","PARAFAC"]

@@ -8,10 +8,7 @@ from importlib import import_module
 import sys
 sys.path.append("_dat")
 
-def import_dataframe(args):
-    input_tag = args.input_tag
-    input_type = args.input_type
-
+def import_dataframe(input_tag,input_type):
     # For import of synthetic data
     if input_tag=="synthetic":
         return generate_synthetic_data(input_type)

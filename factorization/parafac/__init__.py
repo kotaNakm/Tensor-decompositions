@@ -46,19 +46,18 @@ class PARAFAC(torch.nn.Module):
         # mse = criterion(output[tuple(index)], torch.tensor(data,dtype=torch.float32))        
         return mse
 
-    def loss_tensor(self, tensor_data, output): 
-        mse = ((torch.tensor(tensor_data,dtype=torch.float32) - output)**2).sum() # use tuple if you directly refer a elements avoiding fancy indexing
-        # criterion = torch.nn.MSELoss()#reduction='sum'
-        # mse = criterion(output[tuple(index)], torch.tensor(data,dtype=torch.float32))        
+    def loss_tensor(self, tensor_data, output, loss_type="mse"):
+        if loss_type=="mse": 
+            mse = ((torch.tensor(tensor_data,dtype=torch.float32) - output)**2).sum() 
         return mse
 
 
-    def training_tensor(self, tensor_data, n_iter, optimizer, loss_print_interval=10,tol=1e-2):        
+    def training_tensor(self, tensor_data, n_iter, optimizer, loss_print_interval=1000,tol=1e-2):        
         for it in range(n_iter):
+            optimizer.zero_grad()
             loss_out=0
             output = self.forward()
-            loss_out = self.loss_tensor(tensor_data, output) 
-            optimizer.zero_grad()
+            loss_out = self.loss_tensor(tensor_data, output, loss_type="mse")
             loss_out.backward()
             optimizer.step()
             loss_val = loss_out.item()
@@ -68,6 +67,7 @@ class PARAFAC(torch.nn.Module):
             if loss_val<tol:
                 print(f"early stop at {it}")
                 break
+        
         return self.factors
 
     def training_record(self, record_data, n_iter, optimizer, loss_print_interval=10,tol=1e-2):

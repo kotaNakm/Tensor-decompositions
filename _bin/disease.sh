@@ -1,10 +1,10 @@
 cd `dirname $0`
 cd ..
 
-INPUT="synthetic"
-input_type="10,10,20"
-entities="entity1/entity2/entity3"
-value_column="value"
+INPUT="disease"
+input_type="ver1"
+# entities="entity1/entity2/entity3"
+# value_column="value"
 
 train_ratio=0.7
 
